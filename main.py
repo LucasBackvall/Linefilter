@@ -13,6 +13,7 @@ import time, threading, sys
 
 # Constants
 debug = False
+#debug = True
 
 # Debug function
 def dbg(inp):
@@ -36,6 +37,8 @@ def lineFilter(im, size=5):
     owidth, oheight = width-2*size -1, height-2*size -1
     oim = np.zeros((owidth, oheight), np.uint8)
     
+    # Create a size*size matrix where center element is -1
+    # and the rest of the elemets is 1/(size^2)
     filt = np.ones((2*size+1, 2*size+1), np.uint8)
     filt = np.multiply(filt, 1/((size*2+1)**2))
     filt.itemset((size, size), -1)
@@ -60,7 +63,9 @@ def lineFilter(im, size=5):
 class shared():
     
     def __init__(self, frame, f):
+        # Input frame
         self.frame = frame
+        # Resolution of edge detection
         self.f = f
         self.n = 2
         self.loop = True
@@ -128,18 +133,22 @@ while True:
     # 24 fps
     time.sleep(1/24)
     
-    # Update frame
-    dbg("%i: Update frame" % counter)
+    # Update input frame
+    dbg("Update input frame")
     _, frame = cam.read()
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     cv2.imshow("Input", frame)
     key = cv2.waitKey(1)
     data.frame = frame
     
-    dbg("%i: Frame updated" % counter)
-    # Set varialbe n
-    if key > ord("0") and key <= ord("9"):
+    dbg("Input frame updated")
+    # Set varialbe f
+    if key >= ord("1") and key <= ord("4"):
         data.f = (key - ord("0"))/10
+
+    # Set varialbe n
+    if key >= ord("5") and key <= ord("9"):
+        data.n = key - ord("0") - 4
     
     # exit condition
     if key == ord("q"):
