@@ -9,7 +9,8 @@ import time, threading, sys
 # Usage:
 # Simply run this with python3 on a device with a webcam.
 # Press q to exit
-# Press a number between 1-9 to select resolution of filter
+# Press a number between 1-4 to select resolution of image
+# Press a number between 5-9 to select size of filter
 
 # Constants
 debug = False
@@ -65,9 +66,11 @@ class shared():
     def __init__(self, frame, f):
         # Input frame
         self.frame = frame
-        # Resolution of edge detection
+        # Scale of input image to be used in processing (0-1)
         self.f = f
+        # Size of filter matrix to be used by processing
         self.n = 2
+        # Thread control variable. Set to false to kill all extra threads.
         self.loop = True
 
 
@@ -104,18 +107,19 @@ cv2.imshow("Input", frame)
 cv2.moveWindow("Input", 800, 0)
 
 # Create shared object
-data = shared(frame, 0.5)
+data = shared(frame, 0.4)
 
 def outputThread(data):
     
     while data.loop:
         
+        # Scale down input frame to a factor f or original size
         iframe = cv2.resize(data.frame, (0,0), fx=data.f, fy=data.f)
         
         # Process
         pframe = lineFilter(iframe, data.n)
         
-        # Output
+        # Output, scaled up again by a factor of 1/f
         pframe = cv2.resize(pframe, (0,0), fx=1/data.f, fy=1/data.f)
         cv2.imshow("Output", pframe)
         
@@ -156,4 +160,5 @@ while True:
         break
 
 tOutput.join()
+cv2.destroyAllWindows()
 
