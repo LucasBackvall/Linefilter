@@ -1,8 +1,7 @@
 from PIL import Image, ImageFilter
 import numpy as np
 import cv2
-import time
-import threading
+import time, threading, sys
 
 # Line filter testing
 # This program implements a simple edge-detection algorithm
@@ -57,6 +56,7 @@ def lineFilter(im, size=5):
             oim.itemset((x, y), np.uint8(pixel))
     return oim
 
+# Shared variables class
 class shared():
     
     def __init__(self, frame, f):
@@ -66,16 +66,35 @@ class shared():
         self.loop = True
 
 
-
 # Setup webcam
-try:
-    cam = cv2.VideoCapture(0)
-except:
-    cam = cv2.VideoCapture(input("Capture device number:\n>>"))
 
-# First frame
-_, frame = cam.read()
-frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+dbg("Setup webcam begin.")
+try:
+    # Try getting first frame
+    cam = cv2.VideoCapture(0)
+    _, frame = cam.read()
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    noWebcam = False
+except:
+    noWebcam = True
+
+while noWebcam:
+    cv2.destroyAllWindows()
+    inp = input("Enter Q to exit program. Otherwise enter capture device number:\n>>")
+    if inp == "Q" or inp == "q":
+        sys.exit()
+    try:
+        # Try getting first frame
+        cam = cv2.VideoCapture(int(inp))
+        _, frame = cam.read()
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        noWebcam = False
+    except:
+        print("Not a valid capture device number.")
+
+
+
+# Show first frame
 cv2.imshow("Input", frame)
 cv2.moveWindow("Input", 800, 0)
 
@@ -102,7 +121,7 @@ tOutput.start()
 
 counter = 0
 
-dbg("start")
+dbg("Loop begin")
 
 while True:
     
@@ -110,14 +129,14 @@ while True:
     time.sleep(1/24)
     
     # Update frame
-    dbg(str(counter) + " update frame")
+    dbg("%i: Update frame" % counter)
     _, frame = cam.read()
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     cv2.imshow("Input", frame)
     key = cv2.waitKey(1)
     data.frame = frame
     
-    dbg("frame updated")
+    dbg("%i: Frame updated" % counter)
     # Set varialbe n
     if key > ord("0") and key <= ord("9"):
         data.f = (key - ord("0"))/10
