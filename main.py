@@ -31,12 +31,18 @@ def quantize(value, cutoff=128):
     else:
         return 0
 
+def inverse(value, cutoff=128):
+    if value < cutoff:
+        return 255
+    else:
+        return 0
+
 def lineFilter(iMatrix, size=5):
     
     # This function creates a 2D filter matrix with
     # width and height 2*size+1
     # The elements of the matrix are 1/(2*size+1)^2,
-    # except of the centre element which is -1.
+    # then we add -1 to the centre element.
     
     width, height = iMatrix.shape
     
@@ -45,25 +51,21 @@ def lineFilter(iMatrix, size=5):
     
     preCalculatedMatrix = np.multiply(iMatrix, 1/((size*2+1)**2))
     
-    # Create a size*size matrix where center element is -1
-    # and the rest of the elemets is 1/(size^2)
-    #filt = np.ones((2*size+1, 2*size+1), np.uint8)
-    #filt = np.multiply(filt, 1/((size*2+1)**2))
-    #filt.itemset((size, size), -1)
-    
     for y in range(oHeight):
         for x in range(oWidth):
-            val = 0
+            
             # Centre element
             elem = iMatrix.item(x+size, y+size)
             
+            # Fetch pre-calculated floating point digits
             filterMatrix = preCalculatedMatrix[x:x+2*size+1, y:y+2*size+1]
+            
             val = np.sum(filterMatrix) - elem
             
             if val > 2*size:
                 elem = 255
             else:
-                elem = 0
+                elem = elem/2
             oMatrix.itemset((x, y), np.uint8(elem))
     return oMatrix
 
