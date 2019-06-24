@@ -63,22 +63,26 @@ def lineFilter(iMatrix, size=5):
             val = np.sum(filterMatrix) - elem
             
             if val > 2*size:
-                elem = 255
+                elem = 0
             else:
-                elem = elem/2
+                elem = 1
             oMatrix.itemset((x, y), np.uint8(elem))
     return oMatrix
 
 # Shared variables class
 class shared():
     
-    def __init__(self, frame, f):
+    def __init__(self, frame, scale, size):
         # Input frame
         self.frame = frame
+        # Layered frame
+        width, height = frame.shape 
+        w, h = width-2*size -1, height-2*size -1
+        self.layer = np.zeros((w, h), np.uint8)
         # Scale of input image to be used in processing (0-1)
-        self.f = f
+        self.scale = scale
         # Size of filter matrix to be used by processing
-        self.n = 2
+        self.size = size
         # Thread control variable. Set to false to kill all extra threads.
         self.loop = True
 
@@ -109,59 +113,61 @@ while noWebcam:
     except:
         print("Not a valid capture device number.")
 
-
-
-# Show first frame
-cv2.imshow("Input", frame)
-cv2.moveWindow("Input", 800, 0)
-
 # Create shared object
-data = shared(frame, 0.4)
+frame = cv2.resize(frame, (0,0), fx=0.4, fy=0.4)
+data = shared(frame, 0.4, 2)
 
 def outputThread(data):
     
     while data.loop:
         
-        # Scale down input frame to a factor f or original size
-        iframe = cv2.resize(data.frame, (0,0), fx=data.f, fy=data.f)
-        
         # Process
-        pframe = lineFilter(iframe, data.n)
+        data.layer = lineFilter(data.frame, data.size)
+        layer = np.multiply(data.layer, 255)
+        if debug:
+            cv2.imshow("Layer", cv2.resize(layer, (0,0), fx=1/data.scale, fy=1/data.scale))
         
-        # Output, scaled up again by a factor of 1/f
-        pframe = cv2.resize(pframe, (0,0), fx=1/data.f, fy=1/data.f)
-        cv2.imshow("Output", pframe)
-        
-        time.sleep(1/24)
 
 tOutput = threading.Thread(target=outputThread, args=[data])
 tOutput.start()
 
 counter = 0
 
+time.sleep(0.5)
 dbg("Loop begin")
 
 while True:
     
     # 24 fps
-    time.sleep(1/24)
+    #time.sleep(1/24)
     
     # Update input frame
-    dbg("Update input frame")
     _, frame = cam.read()
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    cv2.imshow("Input", frame)
-    key = cv2.waitKey(1)
+    frame = cv2.resize(frame, (0,0), fx=data.scale, fy=data.scale)
     data.frame = frame
+    width, height = frame.shape
+    frame = frame[data.size:width-data.size-1, data.size:height-data.size-1]
+    if debug:
+        cv2.imshow("Input", cv2.resize(frame, (0,0), fx=1/data.scale, fy=1/data.scale))
     
-    dbg("Input frame updated")
+    # Add layer
+    if data.layer.shape == frame.shape:
+        frame = np.multiply(data.layer, frame)
+    else:
+        dbg("Layer size mismatch.")
+    
+    # Show frame
+    cv2.imshow("Display", cv2.resize(frame, (0,0), fx=1/data.scale, fy=1/data.scale))
+    key = cv2.waitKey(1)
+    
     # Set varialbe f
     if key >= ord("1") and key <= ord("4"):
-        data.f = (key - ord("0"))/10
+        data.scale = (key - ord("0"))/10
 
     # Set varialbe n
     if key >= ord("5") and key <= ord("9"):
-        data.n = key - ord("0") - 4
+        data.size = key - ord("0") - 4
     
     # exit condition
     if key == ord("q"):
