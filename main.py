@@ -31,34 +31,41 @@ def quantize(value, cutoff=128):
     else:
         return 0
 
-def lineFilter(im, size=5):
+def lineFilter(iMatrix, size=5):
     
-    width, height = im.shape
+    # This function creates a 2D filter matrix with
+    # width and height 2*size+1
+    # The elements of the matrix are 1/(2*size+1)^2,
+    # except of the centre element which is -1.
     
-    owidth, oheight = width-2*size -1, height-2*size -1
-    oim = np.zeros((owidth, oheight), np.uint8)
+    width, height = iMatrix.shape
+    
+    oWidth, oHeight = width-2*size -1, height-2*size -1
+    oMatrix = np.zeros((oWidth, oHeight), np.uint8)
+    
+    preCalculatedMatrix = np.multiply(iMatrix, 1/((size*2+1)**2))
     
     # Create a size*size matrix where center element is -1
     # and the rest of the elemets is 1/(size^2)
-    filt = np.ones((2*size+1, 2*size+1), np.uint8)
-    filt = np.multiply(filt, 1/((size*2+1)**2))
-    filt.itemset((size, size), -1)
+    #filt = np.ones((2*size+1, 2*size+1), np.uint8)
+    #filt = np.multiply(filt, 1/((size*2+1)**2))
+    #filt.itemset((size, size), -1)
     
-    for y in range(oheight):
-        for x in range(owidth):
+    for y in range(oHeight):
+        for x in range(oWidth):
             val = 0
-            pixel = im.item(x+size, y+size)
+            # Centre element
+            elem = iMatrix.item(x+size, y+size)
             
-            m = im[x:x+2*size+1, y:y+2*size+1]
-            res = np.multiply(m, filt)
-            val = np.sum(res)
+            filterMatrix = preCalculatedMatrix[x:x+2*size+1, y:y+2*size+1]
+            val = np.sum(filterMatrix) - elem
             
             if val > 2*size:
-                pixel = 255
+                elem = 255
             else:
-                pixel = 0
-            oim.itemset((x, y), np.uint8(pixel))
-    return oim
+                elem = 0
+            oMatrix.itemset((x, y), np.uint8(elem))
+    return oMatrix
 
 # Shared variables class
 class shared():
