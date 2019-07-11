@@ -37,6 +37,22 @@ def inverse(value, cutoff=128):
     else:
         return 0
 
+def elemCalc(iMatrix, preCalculatedMatrix, oMatrix, size, width, y):
+    for x in range(width):
+        
+        # Centre element
+        elem = iMatrix.item(x+size, y+size)
+        
+        # Fetch pre-calculated floating point digits
+        filterMatrix = preCalculatedMatrix[x:x+2*size+1, y:y+2*size+1]
+        
+        val = np.sum(filterMatrix) - elem
+        
+        if val > 2*size:
+            oMatrix.itemset((x, y), np.uint8(0))
+        else:
+            oMatrix.itemset((x, y), np.uint8(1))
+
 def lineFilter(iMatrix, size=5):
     
     # This function creates a 2D filter matrix with
@@ -51,22 +67,15 @@ def lineFilter(iMatrix, size=5):
     
     preCalculatedMatrix = np.multiply(iMatrix, 1/((size*2+1)**2))
     
+    threads = []
+    
     for y in range(oHeight):
-        for x in range(oWidth):
-            
-            # Centre element
-            elem = iMatrix.item(x+size, y+size)
-            
-            # Fetch pre-calculated floating point digits
-            filterMatrix = preCalculatedMatrix[x:x+2*size+1, y:y+2*size+1]
-            
-            val = np.sum(filterMatrix) - elem
-            
-            if val > 2*size:
-                elem = 0
-            else:
-                elem = 1
-            oMatrix.itemset((x, y), np.uint8(elem))
+        t = threading.Thread(target=elemCalc, args=[iMatrix, preCalculatedMatrix, oMatrix, size, oWidth, y])
+        t.start()
+        threads.append(t)
+
+    for t in threads:
+        t.join()
     return oMatrix
 
 # Shared variables class
@@ -139,7 +148,7 @@ dbg("Loop begin")
 while True:
     
     # 24 fps
-    #time.sleep(1/24)
+    time.sleep(1/24)
     
     # Update input frame
     _, frame = cam.read()
