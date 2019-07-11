@@ -11,6 +11,8 @@ import time, threading, sys
 # Press q to exit
 # Press a number between 1-4 to select resolution of image
 # Press a number between 5-9 to select size of filter
+# Press + or - to change threshold value
+# Press t to toggle showing the input in the background
 
 # Constants
 debug = False
@@ -37,7 +39,7 @@ def inverse(value, cutoff=128):
     else:
         return 0
 
-def elemCalc(iMatrix, preCalculatedMatrix, oMatrix, size, width, y):
+def elemCalc(iMatrix, preCalculatedMatrix, oMatrix, size, width, y, threshold):
     for x in range(width):
         
         # Centre element
@@ -48,12 +50,12 @@ def elemCalc(iMatrix, preCalculatedMatrix, oMatrix, size, width, y):
         
         val = np.sum(filterMatrix) - elem
         
-        if val > 2*size:
+        if val > threshold:
             oMatrix.itemset((x, y), np.uint8(0))
         else:
             oMatrix.itemset((x, y), np.uint8(1))
 
-def lineFilter(iMatrix, size=5):
+def lineFilter(iMatrix, size=5, threshold=10):
     
     # This function creates a 2D filter matrix with
     # width and height 2*size+1
@@ -70,7 +72,7 @@ def lineFilter(iMatrix, size=5):
     threads = []
     
     for y in range(oHeight):
-        t = threading.Thread(target=elemCalc, args=[iMatrix, preCalculatedMatrix, oMatrix, size, oWidth, y])
+        t = threading.Thread(target=elemCalc, args=[iMatrix, preCalculatedMatrix, oMatrix, size, oWidth, y, threshold])
         t.start()
         threads.append(t)
 
@@ -81,7 +83,7 @@ def lineFilter(iMatrix, size=5):
 # Shared variables class
 class shared():
     
-    def __init__(self, frame, scale, size):
+    def __init__(self, frame, scale, size, threshold):
         # Input frame
         self.frame = frame
         # Layered frame
@@ -92,6 +94,9 @@ class shared():
         self.scale = scale
         # Size of filter matrix to be used by processing
         self.size = size
+        # Threshold for filter cutoff. This is basically how to define what's
+        # an edge, and what's just noise.
+        self.threshold = threshold
         # Thread control variable. Set to false to kill all extra threads.
         self.loop = True
 
@@ -123,15 +128,15 @@ while noWebcam:
         print("Not a valid capture device number.")
 
 # Create shared object
-frame = cv2.resize(frame, (0,0), fx=0.4, fy=0.4)
-data = shared(frame, 0.4, 2)
+frame = cv2.resize(frame, (0,0), fx=1, fy=1)
+data = shared(frame, 1, 1, 5)
 
 def outputThread(data):
     
     while data.loop:
         
         # Process
-        data.layer = lineFilter(data.frame, data.size)
+        data.layer = lineFilter(data.frame, data.size, data.threshold)
         layer = np.multiply(data.layer, 255)
         if debug:
             cv2.imshow("Layer", cv2.resize(layer, (0,0), fx=1/data.scale, fy=1/data.scale))
@@ -140,7 +145,7 @@ def outputThread(data):
 tOutput = threading.Thread(target=outputThread, args=[data])
 tOutput.start()
 
-counter = 0
+showInput = True
 
 time.sleep(0.5)
 dbg("Loop begin")
@@ -156,7 +161,11 @@ while True:
     frame = cv2.resize(frame, (0,0), fx=data.scale, fy=data.scale)
     data.frame = frame
     width, height = frame.shape
-    frame = frame[data.size:width-data.size-1, data.size:height-data.size-1]
+    if showInput:
+        frame = frame[data.size:width-data.size-1, data.size:height-data.size-1]
+    else:
+        frame = np.ones((width-data.size*2-1, height-data.size*2-1), np.uint8)
+        frame = np.multiply(frame, 255)
     if debug:
         cv2.imshow("Input", cv2.resize(frame, (0,0), fx=1/data.scale, fy=1/data.scale))
     
@@ -172,14 +181,25 @@ while True:
     
     # Set varialbe f
     if key >= ord("1") and key <= ord("4"):
-        data.scale = (key - ord("0"))/10
+        data.scale = (key - ord("0"))/4
 
     # Set varialbe n
-    if key >= ord("5") and key <= ord("9"):
+    elif key >= ord("5") and key <= ord("9"):
         data.size = key - ord("0") - 4
     
+    elif key == ord("+"):
+        data.threshold += 1
+        print("Increasing threshold do %i" % data.threshold)
+
+    elif key == ord("-"):
+        data.threshold -= 1
+        print("Decreasing threshold do %i" % data.threshold)
+
+    elif key == ord("t"):
+        showInput = not showInput
+    
     # exit condition
-    if key == ord("q"):
+    elif key == ord("q"):
         data.loop = False
         break
 
